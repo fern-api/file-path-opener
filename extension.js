@@ -62,13 +62,12 @@ function activate(context) {
 }
 
 function getFilePathAtPosition(lineText, characterPos) {
-        const patterns = [
-        // src attributes first  
+    const patterns = [
+        // src attributes
         /src=["']([^"']+\.[a-zA-Z0-9]+)["']/g,
         /src=\{([^}]+\.[a-zA-Z0-9]+)\}/g,
-        // files that literally end with .md or .mdx
-        /\b([^\s"'`()[\]{}]+\.md)\b/g,
-        /\b([^\s"'`()[\]{}]+\.mdx)\b/g
+        // Any file with .md or .mdx extension
+        /([^\s"'`()[\]{}]+\.mdx?)/g
     ];
 
     for (const pattern of patterns) {
@@ -159,8 +158,7 @@ class FilePathLinkProvider {
             const patterns = [
                 /src=["']([^"']+\.[a-zA-Z0-9]+)["']/g,
                 /src=\{([^}]+\.[a-zA-Z0-9]+)\}/g,
-                /\b([^\s"'`()[\]{}]+\.md)\b/g,
-                /\b([^\s"'`()[\]{}]+\.mdx)\b/g
+                /([^\s"'`()[\]{}]+\.mdx?)/g
             ];
 
             for (const pattern of patterns) {
