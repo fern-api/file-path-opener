@@ -5,7 +5,6 @@ A VS Code extension for opening files from docs.yml files and opening any src fi
 
 https://github.com/user-attachments/assets/f30471f7-2374-49ae-a5bf-b4250e223509
 
-
 ## Features
 
 - **Cmd+Click Navigation**: File paths appear underlined and can be opened with Cmd+Click
@@ -20,7 +19,7 @@ https://github.com/user-attachments/assets/f30471f7-2374-49ae-a5bf-b4250e223509
 - `content: ../snippets/example.mdx`
 
 **Fern Markdown Snippets & src Attributes:**
-- `<Markdown src="../snippets/marketplace-url.mdx" />`
+- `<Markdown src="/snippets/marketplace-url.mdx" />`
 - `<img src="../assets/diagram.png">`
 - `<embed src="./document.pdf">`
 - `<Download src="../files/guide.pdf">`
