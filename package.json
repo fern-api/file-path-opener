@@ -1,0 +1,46 @@
+{
+    "name": "file-path-opener",
+    "displayName": "File Path Opener",
+    "description": "Open MD/MDX files from YAML paths and src attributes",
+    "version": "1.0.0",
+    "engines": {
+        "vscode": "^1.60.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "main": "./extension.js",
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "contributes": {
+        "commands": [
+            {
+                "command": "file-path-opener.openPath",
+                "title": "Open File from Path"
+            },
+            {
+                "command": "file-path-opener.toggle",
+                "title": "Toggle File Path Links (Ctrl+Click)"
+            }
+        ],
+        "keybindings": [
+            {
+                "command": "file-path-opener.openPath",
+                "key": "alt+d",
+                "when": "editorTextFocus"
+            }
+        ]
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "echo 'No compilation needed for simple JS extension'"
+    },
+    "devDependencies": {
+        "@types/node": "^16.x"
+    }
+}
+
+
+
+
