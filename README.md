@@ -56,3 +56,5 @@ Found a bug or want to request a feature?
 **[Open an issue on GitHub](https://github.com/fern-api/file-path-opener/issues)**
 
 Please include an example of the file path that's not working and expected vs actual behavior
+
+
