@@ -53,6 +53,6 @@ A VS Code extension for opening files from docs.yml files and opening any src fi
 
 Found a bug or want to request a feature?
 
-**[Open an issue on GitHub](https://github.com/your-repo/file-path-opener-extension/issues)**
+**[Open an issue on GitHub](https://github.com/fern-api/file-path-opener/issues)**
 
 Please include an example of the file path that's not working and expected vs actual behavior
