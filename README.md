@@ -24,7 +24,7 @@ A VS Code extension for opening files from docs.yml files and opening any src fi
 
 ## Usage
 
-1. File paths appear underlined in YAML frontmatter and MDX files
+1. File paths appear underlined in YAML and MDX files
 2. Hold `Cmd` (or `Ctrl` on Windows/Linux) and click any underlined path
 3. The file opens in a new tab
 
