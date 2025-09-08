@@ -3,7 +3,8 @@
 A VS Code extension for opening files from docs.yml files and opening any src file, including Fern's markdown reusable snippet components.
 
 
-https://github.com/user-attachments/assets/f30471f7-2374-49ae-a5bf-b4250e223509
+
+https://github.com/user-attachments/assets/09bac416-0a08-45e3-92b5-f64c263643cf
 
 ## Features
 
