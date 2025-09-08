@@ -38,9 +38,22 @@ A VS Code extension for opening files from docs.yml files and opening any src fi
 3. Test the extension in the new window
 
 ### Permanent Installation
-1. Install `vsce`: `npm install -g vsce`
-2. Package: `vsce package`
-3. Install the `.vsix` file via Extensions view → "Install from VSIX..."
+1. Package the extension: `npx @vscode/vsce package`
+2. Install using one of these methods:
+
+**Option A: Command Palette**
+- Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
+- Type: `Extensions: Install from VSIX`
+- Select the generated `file-path-opener-1.0.0.vsix` file
+
+**Option B: Command Line**
+```bash
+# Run from the extension directory:
+code --install-extension file-path-opener-1.0.0.vsix
+
+# Or from anywhere with full path:
+code --install-extension /path/to/file-path-opener-1.0.0.vsix
+```
 
 ## Use Cases
 
@@ -56,5 +69,3 @@ Found a bug or want to request a feature?
 **[Open an issue on GitHub](https://github.com/fern-api/file-path-opener/issues)**
 
 Please include an example of the file path that's not working and expected vs actual behavior
-
-
