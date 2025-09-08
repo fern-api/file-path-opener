@@ -43,16 +43,7 @@ function activate(context) {
             return;
         }
 
-        filePath = cleanPath(filePath);
-        let fullPath;
-        if (path.isAbsolute(filePath)) {
-            fullPath = filePath;
-        } else {
-            const currentDir = path.dirname(document.fileName);
-            fullPath = path.resolve(currentDir, filePath);
-        }
-
-        // Use file path exactly as specified
+        const fullPath = resolveFilePath(filePath, document.fileName);
         if (!fs.existsSync(fullPath)) {
             vscode.window.showErrorMessage(`File not found: ${fullPath}`);
             return;
@@ -106,6 +97,33 @@ function cleanPath(filePath) {
         .trim();
 }
 
+function resolveFilePath(filePath, documentPath) {
+    const cleanedPath = cleanPath(filePath);
+    
+    // Fern snippets: /snippets/* -> find fern directory
+    if (cleanedPath.startsWith('/snippets/')) {
+        let currentDir = path.dirname(documentPath);
+        while (currentDir !== path.dirname(currentDir)) {
+            const fernPath = path.join(currentDir, 'fern');
+            if (fs.existsSync(fernPath)) {
+                return path.join(fernPath, cleanedPath.substring(1));
+            }
+            currentDir = path.dirname(currentDir);
+        }
+    }
+    
+    // Workspace absolute: /* -> workspace root
+    if (cleanedPath.startsWith('/')) {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (workspaceFolders && workspaceFolders.length > 0) {
+            return path.join(workspaceFolders[0].uri.fsPath, cleanedPath.substring(1));
+        }
+    }
+    
+    // System absolute or relative
+    return path.isAbsolute(cleanedPath) ? cleanedPath : path.resolve(path.dirname(documentPath), cleanedPath);
+}
+
 function enableDocumentLinks(context) {
     if (linkProviderDisposable) {
         linkProviderDisposable.dispose();
@@ -156,15 +174,7 @@ class FilePathLinkProvider {
                     const endPos = startPos + filePath.length;
                     
                     // Resolve the file path
-                    let fullPath;
-                    const cleanedPath = cleanPath(filePath);
-                    
-                    if (path.isAbsolute(cleanedPath)) {
-                        fullPath = cleanedPath;
-                    } else {
-                        const currentDir = path.dirname(document.fileName);
-                        fullPath = path.resolve(currentDir, cleanedPath);
-                    }
+                    const fullPath = resolveFilePath(filePath, document.fileName);
                     
 
                     if (!fs.existsSync(fullPath)) {
