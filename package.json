@@ -55,6 +55,7 @@
         "@types/node": "^16.x"
     },
     "dependencies": {
+        "lodash.kebabcase": "^4.1.1",
         "yaml": "^2.8.2"
     }
 }

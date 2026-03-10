@@ -2,6 +2,7 @@ const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs');
 const yaml = require('yaml');
+const kebabCase = require('lodash.kebabcase');
 
 let linkProviderDisposable = null;
 let isLinkProviderEnabled = false;
@@ -211,22 +212,7 @@ class FilePathLinkProvider {
 // slug generation logic from the Fern platform's SlugGenerator.
 // ============================================================================
 
-/**
- * Converts a string to kebab-case, matching Fern's slug generation behavior.
- * e.g. "Getting Started" -> "getting-started"
- *      "API References" -> "api-references"
- *      "Custom CSS & JS" -> "custom-css-and-js"
- */
-function kebabCase(str) {
-    if (!str) return '';
-    return str
-        .replace(/&/g, ' and ')
-        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-        .replace(/[^a-zA-Z0-9]+/g, '-')
-        .toLowerCase()
-        .replace(/^-+|-+$/g, '')
-        .replace(/-+/g, '-');
-}
+// kebabCase is provided by lodash.kebabcase (same implementation used by Fern CLI)
 
 /**
  * Initialize slug annotation decorations and event listeners.
@@ -486,3 +472,4 @@ module.exports = {
     activate,
     deactivate
 };
+
