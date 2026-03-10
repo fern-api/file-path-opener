@@ -355,7 +355,7 @@ function walkNavigation(items, parentParts, slugMap, ymlDir) {
             if (frontmatterSlug) {
                 slugMap.set(item.path, frontmatterSlug);
             } else {
-                const urlSlug = item.slug || kebabCase(item.page);
+                const urlSlug = item.slug ?? kebabCase(item.page);
                 const parts = [...parentParts, urlSlug];
                 const slug = parts.filter(Boolean).join('/');
                 slugMap.set(item.path, slug);
@@ -368,7 +368,7 @@ function walkNavigation(items, parentParts, slugMap, ymlDir) {
             if (item['skip-slug']) {
                 sectionParts = [...parentParts];
             } else {
-                const urlSlug = item.slug || kebabCase(item.section);
+                const urlSlug = item.slug ?? kebabCase(item.section);
                 sectionParts = [...parentParts, urlSlug];
             }
             walkNavigation(item.contents, sectionParts, slugMap, ymlDir);
@@ -377,7 +377,7 @@ function walkNavigation(items, parentParts, slugMap, ymlDir) {
         // API reference with layout containing pages
         if (item.api !== undefined && item.layout) {
             const apiName = typeof item.api === 'string' ? item.api : '';
-            const urlSlug = item.slug || kebabCase(apiName);
+            const urlSlug = item.slug ?? kebabCase(apiName);
             const apiParts = [...parentParts, urlSlug];
             walkNavigation(item.layout, apiParts, slugMap, ymlDir);
         }
@@ -394,7 +394,7 @@ function walkTabs(tabs, parentParts, slugMap, ymlDir) {
         if (!tab || typeof tab !== 'object') continue;
 
         if (tab.tab && (tab.layout || tab.contents)) {
-            const urlSlug = tab.slug || kebabCase(tab.tab);
+            const urlSlug = tab.slug ?? kebabCase(tab.tab);
             const tabParts = tab['skip-slug'] ? [...parentParts] : [...parentParts, urlSlug];
             const children = tab.layout || tab.contents;
             walkNavigation(children, tabParts, slugMap, ymlDir);
@@ -442,7 +442,7 @@ function getProductSlug(rootInfo, productYmlPath) {
         if (!product.path) continue;
         const resolvedPath = path.resolve(rootDir, product.path);
         if (resolvedPath === resolvedProductPath) {
-            return product.slug || null;
+            return product.slug ?? null;
         }
     }
     return null;
