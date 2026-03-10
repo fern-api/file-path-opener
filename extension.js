@@ -215,6 +215,23 @@ class FilePathLinkProvider {
 // kebabCase is provided by lodash.kebabcase (same implementation used by Fern CLI)
 
 /**
+ * Read the frontmatter `slug` field from an MDX/MD file, if it exists.
+ * Returns the slug string or null if not found.
+ */
+function readFrontmatterSlug(filePath) {
+    try {
+        if (!fs.existsSync(filePath)) return null;
+        const content = fs.readFileSync(filePath, 'utf8');
+        const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+        if (!fmMatch) return null;
+        const frontmatter = yaml.parse(fmMatch[1]);
+        return (frontmatter && typeof frontmatter.slug === 'string') ? frontmatter.slug : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Initialize slug annotation decorations and event listeners.
  */
 function initSlugAnnotations(context) {
@@ -294,6 +311,7 @@ function updateSlugDecorations(editor) {
  */
 function computeSlugMap(parsed, filePath) {
     const slugMap = new Map();
+    const ymlDir = path.dirname(filePath);
 
     let productSlug = '';
 
@@ -307,11 +325,11 @@ function computeSlugMap(parsed, filePath) {
     const parentParts = productSlug ? [productSlug] : [];
 
     if (parsed.navigation) {
-        walkNavigation(parsed.navigation, parentParts, slugMap);
+        walkNavigation(parsed.navigation, parentParts, slugMap, ymlDir);
     }
 
     if (parsed.tabs) {
-        walkTabs(parsed.tabs, parentParts, slugMap);
+        walkTabs(parsed.tabs, parentParts, slugMap, ymlDir);
     }
 
     return slugMap;
@@ -324,7 +342,7 @@ function computeSlugMap(parsed, filePath) {
  *   urlSlug = item.slug ?? kebabCase(item.title)
  *   fullSlug = parentParts.join('/') + '/' + urlSlug
  */
-function walkNavigation(items, parentParts, slugMap) {
+function walkNavigation(items, parentParts, slugMap, ymlDir) {
     if (!Array.isArray(items)) return;
 
     for (const item of items) {
@@ -332,10 +350,16 @@ function walkNavigation(items, parentParts, slugMap) {
 
         // Page: has "page" (title) and "path" (file reference)
         if (item.page && item.path) {
-            const urlSlug = item.slug || kebabCase(item.page);
-            const parts = [...parentParts, urlSlug];
-            const slug = parts.filter(Boolean).join('/');
-            slugMap.set(item.path, slug);
+            // Check for frontmatter slug override in the referenced MDX/MD file
+            const frontmatterSlug = ymlDir ? readFrontmatterSlug(path.resolve(ymlDir, item.path)) : null;
+            if (frontmatterSlug) {
+                slugMap.set(item.path, frontmatterSlug);
+            } else {
+                const urlSlug = item.slug || kebabCase(item.page);
+                const parts = [...parentParts, urlSlug];
+                const slug = parts.filter(Boolean).join('/');
+                slugMap.set(item.path, slug);
+            }
         }
 
         // Section: has "section" (title) and "contents" (children)
@@ -347,7 +371,7 @@ function walkNavigation(items, parentParts, slugMap) {
                 const urlSlug = item.slug || kebabCase(item.section);
                 sectionParts = [...parentParts, urlSlug];
             }
-            walkNavigation(item.contents, sectionParts, slugMap);
+            walkNavigation(item.contents, sectionParts, slugMap, ymlDir);
         }
 
         // API reference with layout containing pages
@@ -355,7 +379,7 @@ function walkNavigation(items, parentParts, slugMap) {
             const apiName = typeof item.api === 'string' ? item.api : '';
             const urlSlug = item.slug || kebabCase(apiName);
             const apiParts = [...parentParts, urlSlug];
-            walkNavigation(item.layout, apiParts, slugMap);
+            walkNavigation(item.layout, apiParts, slugMap, ymlDir);
         }
     }
 }
@@ -363,7 +387,7 @@ function walkNavigation(items, parentParts, slugMap) {
 /**
  * Walk tabbed navigation structure.
  */
-function walkTabs(tabs, parentParts, slugMap) {
+function walkTabs(tabs, parentParts, slugMap, ymlDir) {
     if (!Array.isArray(tabs)) return;
 
     for (const tab of tabs) {
@@ -373,7 +397,7 @@ function walkTabs(tabs, parentParts, slugMap) {
             const urlSlug = tab.slug || kebabCase(tab.tab);
             const tabParts = tab['skip-slug'] ? [...parentParts] : [...parentParts, urlSlug];
             const children = tab.layout || tab.contents;
-            walkNavigation(children, tabParts, slugMap);
+            walkNavigation(children, tabParts, slugMap, ymlDir);
         }
     }
 }
