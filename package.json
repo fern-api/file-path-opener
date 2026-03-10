@@ -9,7 +9,15 @@
         "type": "git",
         "url": "https://github.com/fern-api/file-path-opener.git"
     },
-    "keywords": ["file", "path", "opener", "markdown", "yaml", "mdx", "docs"],
+    "keywords": [
+        "file",
+        "path",
+        "opener",
+        "markdown",
+        "yaml",
+        "mdx",
+        "docs"
+    ],
     "engines": {
         "vscode": "^1.60.0"
     },
@@ -45,9 +53,8 @@
     },
     "devDependencies": {
         "@types/node": "^16.x"
+    },
+    "dependencies": {
+        "yaml": "^2.8.2"
     }
 }
-
-
-
-

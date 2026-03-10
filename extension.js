@@ -1,9 +1,14 @@
 const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs');
+const yaml = require('yaml');
 
 let linkProviderDisposable = null;
 let isLinkProviderEnabled = false;
+
+// Slug annotation state
+let slugDecorationType = null;
+let slugUpdateTimeout = null;
 
 function activate(context) {
     console.log('File Path Opener extension is now active!');
@@ -59,6 +64,9 @@ function activate(context) {
     });
 
     context.subscriptions.push(disposable);
+
+    // Initialize slug annotations
+    initSlugAnnotations(context);
 }
 
 function getFilePathAtPosition(lineText, characterPos) {
@@ -135,7 +143,6 @@ function enableDocumentLinks(context) {
     
     context.subscriptions.push(linkProviderDisposable);
     isLinkProviderEnabled = true;
-    
 }
 
 function disableDocumentLinks() {
@@ -171,12 +178,10 @@ class FilePathLinkProvider {
                     const startPos = match.index + pathStartInMatch;
                     const endPos = startPos + filePath.length;
                     
-                    // Resolve the file path
                     const fullPath = resolveFilePath(filePath, document.fileName);
-                    
 
                     if (!fs.existsSync(fullPath)) {
-                        continue; // Skip if file doesn't exist
+                        continue;
                     }
                     
                     const range = new vscode.Range(
@@ -198,10 +203,286 @@ class FilePathLinkProvider {
     }
 }
 
+// ============================================================================
+// Slug Annotation Feature
+//
+// Shows ghost text next to "path:" values in docs.yml / product yml files,
+// displaying the auto-generated URL slug for each page. This mirrors the
+// slug generation logic from the Fern platform's SlugGenerator.
+// ============================================================================
+
+/**
+ * Converts a string to kebab-case, matching Fern's slug generation behavior.
+ * e.g. "Getting Started" -> "getting-started"
+ *      "API References" -> "api-references"
+ *      "Custom CSS & JS" -> "custom-css-and-js"
+ */
+function kebabCase(str) {
+    if (!str) return '';
+    return str
+        .replace(/&/g, ' and ')
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .replace(/[^a-zA-Z0-9]+/g, '-')
+        .toLowerCase()
+        .replace(/^-+|-+$/g, '')
+        .replace(/-+/g, '-');
+}
+
+/**
+ * Initialize slug annotation decorations and event listeners.
+ */
+function initSlugAnnotations(context) {
+    slugDecorationType = vscode.window.createTextEditorDecorationType({
+        after: {
+            color: new vscode.ThemeColor('editorGhostText.foreground'),
+            fontStyle: 'italic',
+            margin: '0 0 0 2em',
+        },
+        isWholeLine: false,
+    });
+
+    context.subscriptions.push(slugDecorationType);
+
+    vscode.window.onDidChangeActiveTextEditor(editor => {
+        if (editor) {
+            triggerSlugUpdate(editor);
+        }
+    }, null, context.subscriptions);
+
+    vscode.workspace.onDidChangeTextDocument(event => {
+        const editor = vscode.window.activeTextEditor;
+        if (editor && event.document === editor.document) {
+            triggerSlugUpdate(editor);
+        }
+    }, null, context.subscriptions);
+
+    if (vscode.window.activeTextEditor) {
+        triggerSlugUpdate(vscode.window.activeTextEditor);
+    }
+}
+
+/**
+ * Debounced trigger for updating slug decorations.
+ */
+function triggerSlugUpdate(editor) {
+    if (slugUpdateTimeout) {
+        clearTimeout(slugUpdateTimeout);
+    }
+    slugUpdateTimeout = setTimeout(() => updateSlugDecorations(editor), 300);
+}
+
+/**
+ * Main function to compute and display slug annotations.
+ */
+function updateSlugDecorations(editor) {
+    if (!editor || !slugDecorationType) return;
+
+    const document = editor.document;
+    const fileName = path.basename(document.fileName);
+
+    if (!fileName.endsWith('.yml') && !fileName.endsWith('.yaml')) {
+        editor.setDecorations(slugDecorationType, []);
+        return;
+    }
+
+    try {
+        const text = document.getText();
+        const parsed = yaml.parse(text);
+
+        if (!parsed) {
+            editor.setDecorations(slugDecorationType, []);
+            return;
+        }
+
+        const slugMap = computeSlugMap(parsed, document.fileName);
+        const decorations = buildSlugDecorations(document, slugMap);
+        editor.setDecorations(slugDecorationType, decorations);
+    } catch (e) {
+        // YAML parse errors are expected while editing; silently clear decorations
+        editor.setDecorations(slugDecorationType, []);
+    }
+}
+
+/**
+ * Compute a map from path string -> slug string by walking the navigation tree.
+ */
+function computeSlugMap(parsed, filePath) {
+    const slugMap = new Map();
+
+    let productSlug = '';
+
+    if (parsed.navigation || parsed.tabs) {
+        const rootInfo = findRootDocsYml(filePath);
+        if (rootInfo) {
+            productSlug = getProductSlug(rootInfo, filePath) || '';
+        }
+    }
+
+    const parentParts = productSlug ? [productSlug] : [];
+
+    if (parsed.navigation) {
+        walkNavigation(parsed.navigation, parentParts, slugMap);
+    }
+
+    if (parsed.tabs) {
+        walkTabs(parsed.tabs, parentParts, slugMap);
+    }
+
+    return slugMap;
+}
+
+/**
+ * Walk navigation items recursively, computing slugs for each page.
+ *
+ * Slug logic mirrors the Fern platform's SlugGenerator:
+ *   urlSlug = item.slug ?? kebabCase(item.title)
+ *   fullSlug = parentParts.join('/') + '/' + urlSlug
+ */
+function walkNavigation(items, parentParts, slugMap) {
+    if (!Array.isArray(items)) return;
+
+    for (const item of items) {
+        if (item === null || typeof item !== 'object') continue;
+
+        // Page: has "page" (title) and "path" (file reference)
+        if (item.page && item.path) {
+            const urlSlug = item.slug || kebabCase(item.page);
+            const parts = [...parentParts, urlSlug];
+            const slug = parts.filter(Boolean).join('/');
+            slugMap.set(item.path, slug);
+        }
+
+        // Section: has "section" (title) and "contents" (children)
+        if (item.section && item.contents) {
+            let sectionParts;
+            if (item['skip-slug']) {
+                sectionParts = [...parentParts];
+            } else {
+                const urlSlug = item.slug || kebabCase(item.section);
+                sectionParts = [...parentParts, urlSlug];
+            }
+            walkNavigation(item.contents, sectionParts, slugMap);
+        }
+
+        // API reference with layout containing pages
+        if (item.api !== undefined && item.layout) {
+            const apiName = typeof item.api === 'string' ? item.api : '';
+            const urlSlug = item.slug || kebabCase(apiName);
+            const apiParts = [...parentParts, urlSlug];
+            walkNavigation(item.layout, apiParts, slugMap);
+        }
+    }
+}
+
+/**
+ * Walk tabbed navigation structure.
+ */
+function walkTabs(tabs, parentParts, slugMap) {
+    if (!Array.isArray(tabs)) return;
+
+    for (const tab of tabs) {
+        if (!tab || typeof tab !== 'object') continue;
+
+        if (tab.tab && (tab.layout || tab.contents)) {
+            const urlSlug = tab.slug || kebabCase(tab.tab);
+            const tabParts = tab['skip-slug'] ? [...parentParts] : [...parentParts, urlSlug];
+            const children = tab.layout || tab.contents;
+            walkNavigation(children, tabParts, slugMap);
+        }
+    }
+}
+
+/**
+ * Search upward from a product yml file to find the root docs.yml
+ * that contains a "products" key referencing this file.
+ */
+function findRootDocsYml(productYmlPath) {
+    let dir = path.dirname(productYmlPath);
+
+    for (let i = 0; i < 10; i++) {
+        const candidate = path.join(dir, 'docs.yml');
+        if (fs.existsSync(candidate) && path.resolve(candidate) !== path.resolve(productYmlPath)) {
+            try {
+                const content = fs.readFileSync(candidate, 'utf8');
+                const parsed = yaml.parse(content);
+                if (parsed && parsed.products) {
+                    return { filePath: candidate, content: parsed };
+                }
+            } catch {
+                // Skip files that fail to parse
+            }
+        }
+        const parent = path.dirname(dir);
+        if (parent === dir) break;
+        dir = parent;
+    }
+    return null;
+}
+
+/**
+ * Given a root docs.yml and a product yml file path, find the product's slug.
+ */
+function getProductSlug(rootInfo, productYmlPath) {
+    if (!rootInfo || !rootInfo.content.products) return null;
+
+    const rootDir = path.dirname(rootInfo.filePath);
+    const resolvedProductPath = path.resolve(productYmlPath);
+
+    for (const product of rootInfo.content.products) {
+        if (!product.path) continue;
+        const resolvedPath = path.resolve(rootDir, product.path);
+        if (resolvedPath === resolvedProductPath) {
+            return product.slug || null;
+        }
+    }
+    return null;
+}
+
+/**
+ * Build VS Code decoration objects for each path line that has a computed slug.
+ */
+function buildSlugDecorations(document, slugMap) {
+    if (slugMap.size === 0) return [];
+
+    const decorations = [];
+    const text = document.getText();
+    const lines = text.split('\n');
+
+    const pathPattern = /^(\s*path:\s*)(.+)$/;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const match = pathPattern.exec(line);
+        if (!match) continue;
+
+        // Strip surrounding quotes from the path value
+        const pathValue = match[2].trim().replace(/^["']|["']$/g, '');
+        const slug = slugMap.get(pathValue);
+        if (!slug) continue;
+
+        const range = new vscode.Range(
+            new vscode.Position(i, line.length),
+            new vscode.Position(i, line.length)
+        );
+
+        decorations.push({
+            range,
+            renderOptions: {
+                after: {
+                    contentText: `  slug: /${slug}`,
+                    color: new vscode.ThemeColor('editorGhostText.foreground'),
+                    fontStyle: 'italic',
+                }
+            }
+        });
+    }
+
+    return decorations;
+}
+
 function deactivate() {}
 
 module.exports = {
     activate,
     deactivate
 };
-
