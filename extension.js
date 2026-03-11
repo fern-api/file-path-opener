@@ -297,6 +297,12 @@ function updateSlugDecorations(editor) {
             return;
         }
 
+        // Only activate on Fern docs-related YAML files (must have navigation, tabs, products, or versions)
+        if (!parsed.navigation && !parsed.tabs && !parsed.products && !parsed.versions) {
+            editor.setDecorations(slugDecorationType, []);
+            return;
+        }
+
         const slugMap = computeSlugMap(parsed, document.fileName);
         const decorations = buildSlugDecorations(document, slugMap);
         editor.setDecorations(slugDecorationType, decorations);
@@ -325,11 +331,48 @@ function computeSlugMap(parsed, filePath) {
     const parentParts = productSlug ? [productSlug] : [];
 
     if (parsed.navigation) {
-        walkNavigation(parsed.navigation, parentParts, slugMap, ymlDir);
+        // Handle versioned navigation: { type: 'versioned', versions: [...] }
+        if (Array.isArray(parsed.navigation)) {
+            walkNavigation(parsed.navigation, parentParts, slugMap, ymlDir);
+        } else if (parsed.navigation.versions && Array.isArray(parsed.navigation.versions)) {
+            // Versioned navigation — each version has its own navigation tree
+            for (const version of parsed.navigation.versions) {
+                if (!version || typeof version !== 'object') continue;
+                const versionSlug = version.slug ?? kebabCase(version.version ?? '');
+                const versionParts = [...parentParts, versionSlug];
+                if (version.navigation) {
+                    if (Array.isArray(version.navigation)) {
+                        walkNavigation(version.navigation, versionParts, slugMap, ymlDir);
+                    } else if (version.navigation.items && Array.isArray(version.navigation.items)) {
+                        walkNavigation(version.navigation.items, versionParts, slugMap, ymlDir);
+                    }
+                }
+                if (version.tabs) {
+                    walkTabs(version.tabs, versionParts, slugMap, ymlDir);
+                }
+            }
+        }
     }
 
     if (parsed.tabs) {
         walkTabs(parsed.tabs, parentParts, slugMap, ymlDir);
+    }
+
+    // Handle top-level versions key (alternative versioned format)
+    if (parsed.versions && Array.isArray(parsed.versions)) {
+        for (const version of parsed.versions) {
+            if (!version || typeof version !== 'object') continue;
+            const versionSlug = version.slug ?? kebabCase(version.version ?? '');
+            const versionParts = [...parentParts, versionSlug];
+            if (version.navigation) {
+                if (Array.isArray(version.navigation)) {
+                    walkNavigation(version.navigation, versionParts, slugMap, ymlDir);
+                }
+            }
+            if (version.tabs) {
+                walkTabs(version.tabs, versionParts, slugMap, ymlDir);
+            }
+        }
     }
 
     return slugMap;
@@ -381,6 +424,17 @@ function walkNavigation(items, parentParts, slugMap, ymlDir) {
             const apiParts = [...parentParts, urlSlug];
             walkNavigation(item.layout, apiParts, slugMap, ymlDir);
         }
+
+        // Changelog: has "changelog" key (directory path(s)), contributes a slug segment
+        if (item.changelog) {
+            const title = item.title ?? 'Changelog';
+            const urlSlug = item.slug ?? kebabCase(title);
+            // Changelog doesn't have child pages in docs.yml, but registers its own slug
+            // No path to annotate here — changelog entries are auto-discovered from directory
+        }
+
+        // Link: has "link" and "href"/"url" — external URL, no slug generated
+        // (intentionally skipped — links don't produce slugs)
     }
 }
 
