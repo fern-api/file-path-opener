@@ -1,5 +1,4 @@
 .vscode/launch.json
 .gitignore
 .git/
-node_modules/
 *.vsix
